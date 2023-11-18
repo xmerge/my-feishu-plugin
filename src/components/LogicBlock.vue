@@ -44,6 +44,9 @@ const handleAddJudge = () => {
     value: "",
   });
 };
+const handleDeleteJudge = (index: number) => {
+  judgeList.value.splice(index, 1);
+};
 </script>
 
 <template>
@@ -128,7 +131,12 @@ const handleAddJudge = () => {
                   justify-content: space-between;
                 "
               >
-                <el-select v-model="i.judgeType" class="m-2" style="width: 30%">
+                <el-select
+                  v-model="i.judgeType"
+                  placeholder="选择"
+                  class="m-2"
+                  style="width: 30%"
+                >
                   <el-option
                     v-for="item in [
                       '等于',
@@ -143,9 +151,11 @@ const handleAddJudge = () => {
                     :value="item"
                   />
                 </el-select>
-                <el-input style="width: 65%"></el-input>
+                <el-input v-model="i.value" style="width: 65%"></el-input>
               </span>
               <el-button
+                class="delete-judge"
+                @click="handleDeleteJudge(_)"
                 :icon="Close"
                 size="small"
                 text
@@ -164,10 +174,9 @@ const handleAddJudge = () => {
           text
           bg
           style="color: #409eff"
-          >
-          添加筛选条件
-          </el-button
         >
+          添加筛选条件
+        </el-button>
       </span>
     </div>
 

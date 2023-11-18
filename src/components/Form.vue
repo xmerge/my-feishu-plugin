@@ -1,13 +1,9 @@
 <script setup lang="ts">
+import type { ITable, IView, IGridView } from "@lark-base-open/js-sdk";
 import { bitable } from "@lark-base-open/js-sdk";
-import { ref, onMounted } from "vue";
-import {
-  ArrowRightBold,
-  ArrowDownBold,
-  Close,
-  MoreFilled,
-  Plus
-} from "@element-plus/icons-vue";
+import { BaseClient } from "@base-open/node-sdk";
+import { ref, onMounted, shallowRef } from "vue";
+import { ArrowRightBold } from "@element-plus/icons-vue";
 
 import LogicBlock from "./LogicBlock.vue";
 const base = bitable.base;
@@ -16,9 +12,7 @@ const tableList = ref([]);
 const activeTableName = ref("");
 const activeFiledList = ref<any>([]);
 const activeFiledName = ref("");
-const operator = ref("等于");
-const isExpand = ref(true);
-const valueee = ref("所有");
+const activeView = shallowRef<IView>();
 
 const getActiveTable = async () => {
   const table = await base.getActiveTable();
@@ -49,8 +43,32 @@ const handleTableSelect = async () => {
   activeFiledList.value = fieldList;
 };
 
+const handleConfirm = async () => {
+  // 新建 BaseClient，贴上需要操作的 appToken 和 personalBaseToken
+  const client = new BaseClient({
+    appToken: "IIHabdeTea4fLVsYklHcDjsSnHc",
+    personalBaseToken: "pt-0Uudue96o2tGnQqEmH4uKgj1btRf7ulwXigMVmWLAQAAAUBAMwQAQ0F95ZDY",
+  });
+  client.base.appTableView.patch({
+    path: {
+      table_id: "tblJzaa0Qbg6YDyM",
+      view_id: "vewNNJTfJp"
+    },
+    data: {
+      property: {
+        hidden_fields: ["fldWK6QuK4"]
+      }
+    }
+  })
+};
+
 onMounted(async () => {
+  const selection = await bitable.base.getSelection();
+  console.log("selection: ", selection);
   const activeTable = await getActiveTable();
+  activeView.value = await activeTable.getActiveView();
+  const fieldLL = await activeView.value.getFieldMetaList();
+  console.log("activeView: ", fieldLL);
   activeTableName.value = await getTableName(activeTable);
   const tableList = await getTableList();
   const tempNameList: any[] = [];
@@ -81,10 +99,13 @@ onMounted(async () => {
         </el-select>
       </el-form-item>
     </el-form>
-
     <el-col :span="24">
       <LogicBlock :activeFiledList="activeFiledList"></LogicBlock>
     </el-col>
+    <div>
+      <el-button type="primary" @click="handleConfirm"> 确定 </el-button>
+      <el-button> 重置 </el-button>
+    </div>
   </div>
 </template>
 
