@@ -1,13 +1,20 @@
-<script setup>
+<script setup lang="ts">
 import { bitable } from "@lark-base-open/js-sdk";
 import { ref, onMounted } from "vue";
-import { ArrowRightBold, ArrowDownBold, Close, MoreFilled } from "@element-plus/icons-vue";
-// import { ElButton, ElForm, ElFormItem, ElSelect, ElOption } from "element-plus";
+import {
+  ArrowRightBold,
+  ArrowDownBold,
+  Close,
+  MoreFilled,
+  Plus
+} from "@element-plus/icons-vue";
+
+import LogicBlock from "./LogicBlock.vue";
 const base = bitable.base;
-const tableNameList = ref([]);
+const tableNameList = ref<any[]>([]);
 const tableList = ref([]);
 const activeTableName = ref("");
-const activeFiledList = ref([]);
+const activeFiledList = ref<any>([]);
 const activeFiledName = ref("");
 const operator = ref("等于");
 const isExpand = ref(true);
@@ -46,7 +53,7 @@ onMounted(async () => {
   const activeTable = await getActiveTable();
   activeTableName.value = await getTableName(activeTable);
   const tableList = await getTableList();
-  const tempNameList = [];
+  const tempNameList: any[] = [];
   for (let i = 0; i < tableList.length; i++) {
     tempNameList.push(await getTableName(tableList[i]));
   }
@@ -76,117 +83,7 @@ onMounted(async () => {
     </el-form>
 
     <el-col :span="24">
-      <el-card
-        class="box-card"
-        shadow="never"
-        style="
-          width: 100%;
-          border-radius: 10px;
-          margin-bottom: 18px;
-
-          border-width: 2px;
-        "
-      >
-        <template #header>
-          <div class="card-header">
-            <span
-              style="
-                font-weight: medium;
-                font-size: medium;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-              "
-            >
-              <span
-                class="expand-icon"
-                @click="
-                  () => {
-                    isExpand = !isExpand;
-                  }
-                "
-                style="color: #409EFF;"
-              >
-                <el-icon v-if="isExpand == true"><ArrowDownBold /></el-icon>
-                <el-icon v-else><ArrowRightBold /></el-icon>
-              </span>
-
-              <span>
-                符合以下
-                <el-select
-                  v-model="valueee"
-                  class="m-2"
-                  placeholder="Select"
-                  size="medium"
-                  style="width: 75px"
-                >
-                  <el-option
-                    class="modeSelect"
-                    v-for="item in ['所有', '任一']"
-                    :key="item"
-                    :label="item"
-                    :value="item"
-                  />
-                </el-select>
-                要求
-              </span>
-            </span>
-            <span >
-              <el-button class="button" size="small" text>添加块</el-button>
-              <!-- <el-button class="button" size="small" text bg style="margin-left: 3px;">添加条件</el-button> -->
-              <el-button type="danger" class="button" size="small" text :icon="Close" style="width: 20px; margin-left: 3px;"></el-button>
-            </span>
-          </div>
-        </template>
-        
-
-        <div v-if="isExpand == true" v-for="o in 3" :key="o" class="text item">
-          <el-form style="margin-left: 10px; margin-right: 10px">
-            <el-form-item>
-              <el-row style="display: flex;justify-content: space-between; width: 100%; align-items: center;">
-                <el-select
-                  v-model="activeFiledName"
-                  class="m-2"
-                  style="width: 30%"
-                >
-                  <el-option
-                    v-for="item in activeFiledList"
-                    :key="item.name"
-                    :label="item.name"
-                    :value="item.name"
-                  />
-                </el-select>
-
-                <span style="width: 60%; display: flex; padding-left: 10px; justify-content: space-between">
-                  <el-select v-model="operator" class="m-2" style="width: 30%">
-                    <el-option
-                      v-for="item in [
-                        '等于',
-                        '不等于',
-                        '大于',
-                        '小于',
-                        '大于等于',
-                        '小于等于',
-                      ]"
-                      :key="item"
-                      :label="item"
-                      :value="item"
-                    />
-                  </el-select>
-                  <el-input style="width: 65%"></el-input>
-                  <!-- <el-button class="button" text size="small">x</el-button> -->
-                </span>
-                <el-button :icon="Close" size="small" text style="width: 15px; color: #409EFF ;"/>
-              </el-row>
-            </el-form-item>
-          </el-form>
-        </div>
-        <div v-else>
-          <span style="margin-left: 20px; color: #409EFF ;"> 
-            <el-icon><MoreFilled /></el-icon>
-          </span>
-        </div>
-      </el-card>
+      <LogicBlock :activeFiledList="activeFiledList"></LogicBlock>
     </el-col>
   </div>
 </template>
@@ -202,6 +99,10 @@ onMounted(async () => {
 }
 .modeSelect :deep(.el-input__inner) {
   font-weight: bold;
+}
+:deep(.el-form-item__label) {
+  font-size: medium;
+  font-weight: medium;
 }
 :deep(.el-card__body) {
   padding-left: 0px;
@@ -222,10 +123,6 @@ onMounted(async () => {
 
 .item {
   margin-bottom: 18px;
-}
-
-.box-card {
-  width: 480px;
 }
 .expand-icon :hover {
   cursor: pointer;
