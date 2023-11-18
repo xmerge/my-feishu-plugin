@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ITable, IView, IGridView } from "@lark-base-open/js-sdk";
+import type { ITable, IView } from "@lark-base-open/js-sdk";
 import { bitable } from "@lark-base-open/js-sdk";
 import { BaseClient } from "@base-open/node-sdk";
 import { ref, onMounted, shallowRef } from "vue";
@@ -12,7 +12,7 @@ const tableList = ref([]);
 const activeTableName = ref("");
 const activeFiledList = ref<any>([]);
 const activeFiledName = ref("");
-const activeView = shallowRef<IView>();
+const activeView = shallowRef<any>();
 
 const getActiveTable = async () => {
   const table = await base.getActiveTable();
@@ -44,32 +44,24 @@ const handleTableSelect = async () => {
 };
 
 const handleConfirm = async () => {
-  // 新建 BaseClient，贴上需要操作的 appToken 和 personalBaseToken
-  const client = new BaseClient({
-    appToken: "IIHabdeTea4fLVsYklHcDjsSnHc",
-    personalBaseToken: "pt-0Uudue96o2tGnQqEmH4uKgj1btRf7ulwXigMVmWLAQAAAUBAMwQAQ0F95ZDY",
-  });
-  client.base.appTableView.patch({
-    path: {
-      table_id: "tblJzaa0Qbg6YDyM",
-      view_id: "vewNNJTfJp"
-    },
-    data: {
-      property: {
-        hidden_fields: ["fldWK6QuK4"]
-      }
-    }
-  })
 };
 
 onMounted(async () => {
   const selection = await bitable.base.getSelection();
   console.log("selection: ", selection);
-  const activeTable = await getActiveTable();
-  activeView.value = await activeTable.getActiveView();
+  if (selection.tableId && selection.viewId) {
+    const activeTable = await bitable.base.getTableById(selection.tableId);
+    console.log("activeTable: ", activeTable);
+    const view = await activeTable.getViewById(selection.viewId);
+    console.log("view: ", view);
+    const fieldList = await view.getFieldMetaList();
+    console.log("fieldList: ", fieldList);
+  }
+
+  // activeView.value = await activeTable.getActiveView();
   const fieldLL = await activeView.value.getFieldMetaList();
   console.log("activeView: ", fieldLL);
-  activeTableName.value = await getTableName(activeTable);
+  // activeTableName.value = await getTableName(activeTable);
   const tableList = await getTableList();
   const tempNameList: any[] = [];
   for (let i = 0; i < tableList.length; i++) {
