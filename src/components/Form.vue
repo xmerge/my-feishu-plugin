@@ -109,19 +109,22 @@ const handleReset = (): void => {
 const extractValueByRecordId = async (
   singleSelectField: ITextField | IDateTimeField | INumberField,
   recordId: string
-): Promise<number | null> => {
+): Promise<number | null > => {
   const originFieldVar = await singleSelectField.getValue(recordId);
   if (originFieldVar === null) {
     return null;
   }
+  let text0IsNumber = true;
   let res: number;
   // 本身是 IDateTimeField || INumberField 类型
   res = originFieldVar as number;
   // 本身是 ITextField 类型
   if (Array.isArray(originFieldVar) && originFieldVar[0].type == "text") {
     res = Number(originFieldVar[0].text);
+    if (Number.isNaN(res)) {
+      failureCounter.value++;
+    }
   }
-  console.log("extractValueByRecordId Res: ", res);
   return res;
 };
 
