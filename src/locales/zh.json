@@ -1,3 +1,37 @@
 {
-  "title":"标题"
+  "transformPatternList": {
+    "timestampToDate": "时间戳转日期",
+    "dateToTimestamp": "日期转时间戳"
+  },
+  "unitList": {
+    "millis": "毫秒时间戳",
+    "seconds": "秒时间戳"
+  },
+  "form": {
+    "currentTable": "当前数据表",
+    "chooseSelectMode": "选择转换模式",
+    "unit": "单位",
+    "chooseOriginField": {
+      "timestamp": "选择源字段（时间戳字段）",
+      "date": "选择源字段（日期字段）",
+      "plain": "选择源字段"
+    },
+    "chooseTargetField": {
+      "timestamp": "选择目标字段（时间戳字段）",
+      "date": "选择目标字段（日期字段）",
+      "plain": "选择目标字段"
+    },
+    "chooseTimeStampField": "选择时间戳字段"
+  },
+  "status": {
+    "transforming": "转换中",
+    "confirm": "开始转换",
+    "stop": "停止",
+    "succeeded": "转换成功：",
+    "failed": "转换失败：",
+    "stopTag": "转换停止",
+    "failTag": "转换失败",
+    "completeTag": "转换完成",
+    "checkOriginField": "请检查源字段数据"
+  }
 }

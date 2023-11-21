@@ -1,104 +1,83 @@
 <script setup lang="ts">
 import {
   ITable,
-  IView,
-  IField,
   IFieldMeta,
-  ITableMeta,
   INumberField,
   IDateTimeField,
-  IViewMeta,
-  IOpenSegment,
   FieldType,
-
   ITextField,
+  IEventCbCtx,
+  Selection,
 } from "@lark-base-open/js-sdk";
 import { bitable } from "@lark-base-open/js-sdk";
-import { BaseClient } from "@base-open/node-sdk";
-import { ref, onMounted, shallowRef } from "vue";
-import dayjs from "dayjs";
-import { ArrowRightBold } from "@element-plus/icons-vue";
+import { ref, onMounted, shallowRef, computed } from "vue";
+import { i18n } from "../locales/i18n";
 
-import LogicBlock from "./LogicBlock.vue";
+const { t } = i18n.global;
 
-const isTransforming = ref(false);
+/** 页面加载数据 */
+const isTransformed = ref(false);
 const sucessCounter = ref(0);
 const failureCounter = ref(0);
 const stopFlag = ref(false);
 const finishFlag = ref(false);
 const recordCount = ref(0);
+const isLoading = ref(false);
 
-const base = bitable.base;
-const tableList = shallowRef<ITableMeta[]>([]);
+/** 页面数据 */
 const activeTable = shallowRef<ITable>();
 const fieldList = shallowRef<IFieldMeta[]>([]);
 const activeTableName = ref("");
+const activeTableId = ref("");
 const originField = shallowRef<IFieldMeta>();
 const targetField = shallowRef<IFieldMeta>();
-const activeUnit = ref({
-  label: "毫秒时间戳",
-  value: "millis",
-});
 const activeTransformPattern = ref({
-  label: "时间戳转日期",
-  value: "timestampToDate",
+  label: "",
+  value: ""
 });
-const transformPatternList = [
-  {
-    label: "时间戳转日期",
-    value: "timestampToDate",
-  },
-  {
-    label: "日期转时间戳",
-    value: "dateToTimestamp",
-  },
-];
-const unitList = [
-  {
-    label: "毫秒时间戳",
-    value: "millis",
-  },
-  {
-    label: "秒时间戳",
-    value: "seconds",
-  },
-];
+const activeUnit = ref({
+  label: "",
+  value: ""
+});
+const transformPatternList = computed(() => {
+  return [
+    {
+      label: t("transformPatternList.timestampToDate"),
+      value: "timestampToDate",
+    },
+    {
+      label: t("transformPatternList.dateToTimestamp"),
+      value: "dateToTimestamp",
+    },
+  ];
+});
+const unitList = computed(() => {
+  return [
+    {
+      label: t("unitList.millis"),
+      value: "millis",
+    },
+    {
+      label: t("unitList.seconds"),
+      value: "seconds",
+    },
+  ];
+});
 
-function formatUnixTimestamp(unixTimestamp: number): string {
-  const date = dayjs.unix(unixTimestamp);
-  return date.format("YYYY-MM-DD HH:mm");
-}
-
-const getActiveTable = async () => {
-  const table = await base.getActiveTable();
-  return table;
+/**
+ * 处理单位变化的函数
+ */
+const handleUnitChange = (): void => {
+  originField.value = undefined; // 重置原字段的值为undefined
+  targetField.value = undefined; // 重置目标字段的值为undefined
 };
 
-const getTableList = async () => {
-  const tableList = await base.getTableList();
-  console.log(tableList);
-  return tableList;
-};
-
-const getTableName = async (table) => {
-  const tableName = await table.getName();
-  return tableName;
-};
-
-const getFieldList = async (table) => {
-  const fieldList = await table.getFieldMetaList();
-  // activeFiledName.value = fieldList[0].name;
-  return fieldList;
-};
-
-const handleTableSelect = (): void => {
-  originField.value = undefined;
-  targetField.value = undefined;
-  // 增加
-};
-
+/**
+ * 重置页面信息
+ */
 const handleReset = (): void => {
-  isTransforming.value = true;
+  isTransformed.value = true;
+  isLoading.value = true;
   stopFlag.value = false;
   finishFlag.value = false;
   sucessCounter.value = 0;
@@ -106,40 +85,50 @@ const handleReset = (): void => {
   failureCounter.value = 0;
 };
 
+/**
+ * 提取字段值
+ * @param selectedField 源字段
+ * @param recordId 记录Id
+ */
 const extractValueByRecordId = async (
-  singleSelectField: ITextField | IDateTimeField | INumberField,
+  selectedField: SupportField,
   recordId: string
-): Promise<number | null > => {
-  const originFieldVar = await singleSelectField.getValue(recordId);
+): Promise<number | null> => {
+  const originFieldVar = await selectedField.getValue(recordId);
   if (originFieldVar === null) {
     return null;
   }
-  let text0IsNumber = true;
-  let res: number;
+  let res: number | null = null;
   // 本身是 IDateTimeField || INumberField 类型
-  res = originFieldVar as number;
-  // 本身是 ITextField 类型
-  if (Array.isArray(originFieldVar) && originFieldVar[0].type == "text") {
-    res = Number(originFieldVar[0].text);
-    if (Number.isNaN(res)) {
-      failureCounter.value++;
+  if (
+    originField.value?.type === FieldType.Number ||
+    originField.value?.type === FieldType.DateTime
+  ) {
+    res = originFieldVar as number;
+  } else if (originField.value?.type === FieldType.Text) {
+    // 本身是 ITextField 类型
+    if (Array.isArray(originFieldVar) && originFieldVar[0].type == "text") {
+      res = Number(originFieldVar[0].text);
+      if (Number.isNaN(res)) {
+        failureCounter.value++;
+      }
     }
   }
   return res;
 };
 
+/**
+ * 设置字段值
+ * @param targetSelectField 目标字段
+ * @param recordId 记录Id
+ * @param targetVal 目标值
+ */
 const setValueByRecordId = async (
-  targetSelectField: ITextField | IDateTimeField | INumberField,
+  targetSelectField: SupportField,
   recordId: string,
   targetVal: number
 ): Promise<void> => {
   let res: Promise<void>;
-  const field = targetSelectField as IDateTimeField | INumberField;
-  if (targetSelectField["IOpenSegment[]"]) {
-    console.log("文本");
-  } else {
-    console.log("非文本");
-  }
   if (targetField.value?.type === FieldType.Text) {
     res = (targetSelectField as ITextField)
       .setValue(recordId, targetVal.toString())
@@ -163,22 +152,25 @@ const setValueByRecordId = async (
   return res;
 };
 
+/**
+ * 提交转换
+ */
 const handleConfirm = async () => {
   if (!(originField.value && targetField.value)) {
     return;
   }
+  if (!activeUnit.value.value) {
+    activeUnit.value.value = "millis"
+  }
   handleReset();
   if (activeTable.value) {
-    console.log("开始1");
     const recordIdList = await activeTable.value.getRecordIdList();
-    console.log("开始2");
-    const originSelectField = await activeTable.value.getField<
-      IDateTimeField | ITextField | INumberField
-    >(originField.value.id);
-    console.log("开始3");
-    const targetSelectField = await activeTable.value.getField<
-      IDateTimeField | ITextField
-    >(targetField.value.id);
+    const originSelectField = await activeTable.value.getField<SupportField>(
+      originField.value.id
+    );
+    const targetSelectField = await activeTable.value.getField<SupportField>(
+      targetField.value.id
+    );
     try {
       const promises: Promise<void>[] = [];
       for (const recordId of recordIdList) {
@@ -186,10 +178,10 @@ const handleConfirm = async () => {
         if (!val) {
           continue;
         }
-        console.log(val);
         recordCount.value++;
         if (!stopFlag.value) {
           let targetVal: number;
+          // 单位转换
           if (activeTransformPattern.value.value == "timestampToDate") {
             targetVal = activeUnit.value.value == `millis` ? val : val * 1000;
           } else {
@@ -205,72 +197,101 @@ const handleConfirm = async () => {
       }
       await Promise.all(promises);
     } finally {
+      isLoading.value = false;
       if (!stopFlag.value && recordCount.value === sucessCounter.value) {
         finishFlag.value = true;
-        console.log("all done");
       }
     }
   }
 };
 
+/**
+ * 停止转换
+ */
 const handleStop = () => {
   if (finishFlag.value) {
     return;
   }
+  isLoading.value = false;
   stopFlag.value = true;
 };
 
+/**
+ * 获取当前选中的表信息
+ */
 const getCurrentSelection = async () => {
   const selection = await bitable.base.getSelection();
   if (selection.tableId && selection.viewId) {
     activeTable.value = await bitable.base.getTableById(selection.tableId);
+    activeTableId.value = activeTable.value.id;
+    activeTableName.value = await activeTable.value.getName();
     const view = await activeTable.value.getViewById(selection.viewId);
     fieldList.value = await view.getFieldMetaList();
   }
 };
 
+/**
+ * 字段变化时触发
+ */
 const handleFieldChange = () => {
   console.log("handleFieldChange");
   getCurrentSelection();
   originField.value = undefined;
   targetField.value = undefined;
-}
+};
 
+/**
+ * 选择变化时触发
+ * 仅处理table变化时
+ */
+const handleSelectionChange = (e: IEventCbCtx<Selection>) => {
+  if (e.data.tableId != activeTableId.value) {
+    handleFieldChange();
+  }
+};
+
+/**
+ * 组件挂载时触发
+ */
 onMounted(async () => {
   await getCurrentSelection();
-  // const off = bitable.base.onSelectionChange(handleSelectionChange);
+  // 注册选择变化监听器
+  const off = bitable.base.onSelectionChange(handleSelectionChange);
+  // 注册字段修改监听器
   const offFieldModify = activeTable.value?.onFieldModify(handleFieldChange);
+  // 注册字段添加监听器
   const offFieldAdd = activeTable.value?.onFieldAdd(handleFieldChange);
-  const offFieldDelete= activeTable.value?.onFieldDelete(handleFieldChange);
+  // 注册字段删除监听器
+  const offFieldDelete = activeTable.value?.onFieldDelete(handleFieldChange);
 });
+
+type SupportField = ITextField | IDateTimeField | INumberField;
 </script>
 
 <template>
   <div style="padding-bottom: 10px">
     <el-form label-position="top">
-      <el-form-item label="选择数据表">
-        <el-select
-          v-model="activeTableName"
-          class="m-2"
-          placeholder="请选择数据表"
-          :change="handleTableSelect()"
-          style="width: 90%"
-        >
-          <el-option
-            v-for="item in tableList"
-            :key="item.id"
-            :label="item.name"
-            :value="item.id"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="选择转换模式">
+      <el-row
+        style="
+          display: flex;
+          align-items: center;
+          padding-bottom: 15px;
+          font-size: large;
+        "
+      >
+        {{ t("form.currentTable") }}
+        <el-tag type="success" size="medium" style="margin-left: 10px">
+          {{ activeTableName }}
+        </el-tag>
+      </el-row>
+
+      <el-form-item :label="t(`form.chooseSelectMode`)">
         <el-select
           v-model="activeTransformPattern"
           value-key="value"
           class="m-2"
-          placeholder="请选转换模式"
-          :change="handleTableSelect()"
+          :placeholder="t(`form.chooseSelectMode`)"
+          :change="handleUnitChange()"
           style="width: 90%"
         >
           <el-option
@@ -282,7 +303,7 @@ onMounted(async () => {
         </el-select>
       </el-form-item>
       <div v-if="activeTransformPattern.value == `timestampToDate`">
-        <el-form-item label="选择源字段（时间戳字段）">
+        <el-form-item :label="t(`form.chooseOriginField.timestamp`)">
           <el-row
             style="width: 90%; display: flex; justify-content: space-between"
           >
@@ -290,7 +311,7 @@ onMounted(async () => {
               v-model="originField"
               value-key="id"
               class="m-2"
-              placeholder="选择时间戳字段"
+              :placeholder="t(`form.chooseTimeStampField`)"
               style="width: 60%; border-radius: 10px"
             >
               <el-option
@@ -305,7 +326,7 @@ onMounted(async () => {
             <el-select
               v-model="activeUnit"
               class="m-2"
-              placeholder="单位"
+              :placeholder="t(`form.unit`)"
               style="width: 35%"
             >
               <el-option
@@ -317,12 +338,12 @@ onMounted(async () => {
             </el-select>
           </el-row>
         </el-form-item>
-        <el-form-item label="选择生成目标字段（日期字段）">
+        <el-form-item :label="t(`form.chooseTargetField.date`)">
           <el-select
             v-model="targetField"
             value-key="id"
             class="m-2"
-            placeholder="选择目标字段"
+            :placeholder="t(`form.chooseTargetField.plain`)"
             style="width: 90%"
           >
             <el-option
@@ -335,12 +356,12 @@ onMounted(async () => {
         </el-form-item>
       </div>
       <div v-else-if="activeTransformPattern.value == `dateToTimestamp`">
-        <el-form-item label="选择源字段（日期字段）">
+        <el-form-item :label="t(`form.chooseOriginField.date`)">
           <el-select
             v-model="originField"
             value-key="id"
             class="m-2"
-            placeholder="选择目标字段"
+            :placeholder="t(`form.chooseTargetField.plain`)"
             style="width: 90%"
           >
             <el-option
@@ -351,7 +372,7 @@ onMounted(async () => {
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="选择目标字段（时间戳字段）">
+        <el-form-item :label="t(`form.chooseTargetField.timestamp`)">
           <el-row
             style="width: 90%; display: flex; justify-content: space-between"
           >
@@ -359,7 +380,7 @@ onMounted(async () => {
               v-model="targetField"
               value-key="id"
               class="m-2"
-              placeholder="选择时间戳字段"
+              :placeholder="t(`form.chooseTimeStampField`)"
               style="width: 60%; border-radius: 10px"
             >
               <el-option
@@ -374,7 +395,7 @@ onMounted(async () => {
             <el-select
               v-model="activeUnit"
               class="m-2"
-              placeholder="单位"
+              :placeholder="t(`form.unit`)"
               style="width: 35%"
             >
               <el-option
@@ -388,24 +409,36 @@ onMounted(async () => {
         </el-form-item>
       </div>
     </el-form>
-    <el-col :span="24">
-      <!-- <LogicBlock :activeFiledList="activeFiledList"></LogicBlock> -->
-    </el-col>
+    <el-col :span="24"> </el-col>
     <div>
-      <el-button type="primary" @click="handleConfirm"> 开始转换 </el-button>
-      <el-button @click="handleStop"> 停止 </el-button>
+      <el-button type="primary" :disabled="isLoading" @click="handleConfirm">
+        {{ isLoading ? t("status.transforming") : t("status.confirm") }}
+      </el-button>
+      <el-button @click="handleStop"> {{ t("status.stop") }} </el-button>
     </div>
-    <div v-if="isTransforming" style="padding-top: 20px; font-size: medium">
+    <div v-if="isTransformed" style="padding-top: 20px; font-size: medium">
       <div style="padding-bottom: 10px">
-        <div style="padding-bottom: 10px">转换成功： {{ sucessCounter }}</div>
-        <div style="padding-bottom: 10px">转换失败： {{ failureCounter }}</div>
-        <div v-if="finishFlag" style="padding-bottom: 10px">
-          <el-tag v-if="!stopFlag" type="success" size="large">
-            转换完成
+        <div style="padding-bottom: 10px">
+          {{ t("status.succeeded") + sucessCounter }}
+        </div>
+        <div style="padding-bottom: 10px">
+          {{ t("status.failed") + failureCounter }}
+          <span v-if="failureCounter">
+            {{ t("status.checkOriginField") }}
+          </span>
+        </div>
+        <div v-if="finishFlag && !stopFlag" style="padding-bottom: 10px">
+          <el-tag v-if="sucessCounter" type="primary" size="large">
+            {{ t("status.completeTag") }}
+          </el-tag>
+          <el-tag v-else type="warning" size="large">
+            {{ t("status.failTag") }}
           </el-tag>
         </div>
         <div v-if="stopFlag" style="padding-bottom: 10px">
-          <el-tag type="info" size="large"> 转换停止 </el-tag>
+          <el-tag type="info" size="large">
+            {{ t("status.stopTag") }}
+          </el-tag>
         </div>
       </div>
     </div>

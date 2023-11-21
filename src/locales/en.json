@@ -1,3 +1,37 @@
 {
-  "title":"title"
+  "transformPatternList": {
+    "timestampToDate": "Timestamp to Date",
+    "dateToTimestamp": "Date to Timestamp"
+  },
+  "unitList": {
+    "millis": "Millisecond Timestamp",
+    "seconds": "Second Timestamp"
+  },
+  "form": {
+    "currentTable": "Current Data Table",
+    "chooseSelectMode": "Choose Conversion Mode",
+    "unit": "Unit",
+    "chooseOriginField": {
+      "timestamp": "Choose Source Field (Timestamp Field)",
+      "date": "Choose Source Field (Date Field)",
+      "plain": "Choose Source Field"
+    },
+    "chooseTargetField": {
+      "timestamp": "Choose Target Field (Timestamp Field)",
+      "date": "Choose Target Field (Date Field)",
+      "plain": "Choose Target Field"
+    },
+    "chooseTimeStampField": "Choose Timestamp Field"
+  },
+  "status": {
+    "transforming": "Transforming",
+    "confirm": "Start Transformation",
+    "stop": "Stop",
+    "succeeded": "Transformation Succeeded: ",
+    "failed": "Transformation Failed: ",
+    "stopTag": "Transformation Stopped",
+    "failTag": "Transformation Failed",
+    "completeTag": "Transformation Completed",
+    "checkOriginField": "Please check the source field data"
+  }
 }
