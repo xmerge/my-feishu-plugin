@@ -1,27 +1,30 @@
 {
-  "transformPatternList": {
-    "timestampToDate": "Timestamp to Date",
-    "dateToTimestamp": "Date to Timestamp"
-  },
-  "unitList": {
-    "millis": "Millisecond Timestamp",
-    "seconds": "Second Timestamp"
-  },
   "form": {
-    "currentTable": "Current Data Table",
+    "currentTable": "Current Table",
     "chooseSelectMode": "Choose Conversion Mode",
-    "unit": "Unit",
-    "chooseOriginField": {
-      "timestamp": "Choose Source Field (Timestamp Field)",
-      "date": "Choose Source Field (Date Field)",
-      "plain": "Choose Source Field"
-    },
-    "chooseTargetField": {
-      "timestamp": "Choose Target Field (Timestamp Field)",
-      "date": "Choose Target Field (Date Field)",
-      "plain": "Choose Target Field"
-    },
-    "chooseTimeStampField": "Choose Timestamp Field"
+    "chooseOriginField": "Choose Source Field",
+    "chooseTargetField": "Choose Target Field",
+    "inputRegexText": "Enter Regular Expression"
+  },
+  "mode": {
+    "test": "Match",
+    "match": "Extract",
+    "replace": "Replace",
+    "split": "Split"
+  },
+  "info": {
+    "originField": "The source field should be of numeric or text types",
+    "targetField": "The target field should be of text type"
+  },
+  "message": {
+    "emptyField": "Please select a field",
+    "emptyMode": "Please select a conversion mode",
+    "emptyRegex": "Please enter a regular expression",
+    "wrongRegex": "Please enter a valid regular expression"
+  },
+  "res" : {
+    "true": "true",
+    "false": "false"
   },
   "status": {
     "transforming": "Transforming",
@@ -31,7 +34,7 @@
     "failed": "Transformation Failed: ",
     "stopTag": "Transformation Stopped",
     "failTag": "Transformation Failed",
-    "completeTag": "Transformation Completed",
+    "completeTag": "Transformation Complete",
     "checkOriginField": "Please check the source field data"
   }
 }

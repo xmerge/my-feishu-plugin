@@ -3,12 +3,20 @@ const { t } = i18n.global;
 
 export const transformPatternList = [
   {
-    label: t("transformPatternList.timestampToDate"),
-    value: "timestampToDate",
+    label: t("mode.test"),
+    value: "test",
   },
   {
-    label: t("transformPatternList.dateToTimestamp"),
-    value: "dateToTimestamp",
+    label: t("mode.match"),
+    value: "match",
+  },
+  {
+    label: t("mode.replace"),
+    value: "replace",
+  },
+  {
+    label: t("mode.split"),
+    value: "split",
   },
 ];
 export const unitList = [

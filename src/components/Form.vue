@@ -10,9 +10,10 @@ import {
   Selection,
 } from "@lark-base-open/js-sdk";
 import { bitable } from "@lark-base-open/js-sdk";
-import { ref, onMounted, shallowRef, computed } from "vue";
+import { ref, onMounted, shallowRef, computed, reactive } from "vue";
 import { i18n } from "../locales/i18n";
-
+import { ElMessage  } from 'element-plus'
+import { WarningFilled } from "@element-plus/icons-vue";
 const { t } = i18n.global;
 
 /** 页面加载数据 */
@@ -25,57 +26,57 @@ const recordCount = ref(0);
 const isLoading = ref(false);
 
 /** 页面数据 */
+const regexText = ref("");
 const activeTable = shallowRef<ITable>();
 const fieldList = shallowRef<IFieldMeta[]>([]);
 const activeTableName = ref("");
 const activeTableId = ref("");
 const originField = shallowRef<IFieldMeta>();
 const targetField = shallowRef<IFieldMeta>();
+const errorMsg = ref("");
 const activeTransformPattern = ref({
   label: "",
-  value: ""
+  value: "",
 });
 const activeUnit = ref({
   label: "",
-  value: ""
+  value: "",
 });
 const transformPatternList = computed(() => {
   return [
     {
-      label: t("transformPatternList.timestampToDate"),
-      value: "timestampToDate",
+      label: t("mode.test"),
+      value: "test",
     },
     {
-      label: t("transformPatternList.dateToTimestamp"),
-      value: "dateToTimestamp",
+      label: t("mode.match"),
+      value: "match",
+    },
+    {
+      label: t("mode.replace"),
+      value: "replace",
+    },
+    {
+      label: t("mode.split"),
+      value: "split",
     },
   ];
 });
-const unitList = computed(() => {
-  return [
-    {
-      label: t("unitList.millis"),
-      value: "millis",
-    },
-    {
-      label: t("unitList.seconds"),
-      value: "seconds",
-    },
-  ];
-});
+
 
 /**
  * 处理单位变化的函数
  */
 const handleUnitChange = (): void => {
-  originField.value = undefined; // 重置原字段的值为undefined
-  targetField.value = undefined; // 重置目标字段的值为undefined
+  // originField.value = undefined; // 重置原字段的值为undefined
+  // targetField.value = undefined; // 重置目标字段的值为undefined
 };
 
 /**
  * 重置页面信息
  */
 const handleReset = (): void => {
+  errorMsg.value = "";
   isTransformed.value = true;
   isLoading.value = true;
   stopFlag.value = false;
@@ -93,25 +94,21 @@ const handleReset = (): void => {
 const extractValueByRecordId = async (
   selectedField: SupportField,
   recordId: string
-): Promise<number | null> => {
+): Promise<string | null> => {
   const originFieldVar = await selectedField.getValue(recordId);
   if (originFieldVar === null) {
     return null;
   }
-  let res: number | null = null;
+  let res: string | null = null;
   // 本身是 IDateTimeField || INumberField 类型
   if (
-    originField.value?.type === FieldType.Number ||
-    originField.value?.type === FieldType.DateTime
+    originField.value?.type === FieldType.Number
   ) {
-    res = originFieldVar as number;
+    res = originFieldVar.toString();
   } else if (originField.value?.type === FieldType.Text) {
     // 本身是 ITextField 类型
     if (Array.isArray(originFieldVar) && originFieldVar[0].type == "text") {
-      res = Number(originFieldVar[0].text);
-      if (Number.isNaN(res)) {
-        failureCounter.value++;
-      }
+      res = originFieldVar[0].text;
     }
   }
   return res;
@@ -124,9 +121,9 @@ const extractValueByRecordId = async (
  * @param targetVal 目标值
  */
 const setValueByRecordId = async (
-  targetSelectField: SupportField,
+  targetSelectField: ITextField,
   recordId: string,
-  targetVal: number
+  targetVal: string
 ): Promise<void> => {
   let res: Promise<void>;
   if (targetField.value?.type === FieldType.Text) {
@@ -139,37 +136,45 @@ const setValueByRecordId = async (
         failureCounter.value++;
       });
   } else {
-    res = (targetSelectField as IDateTimeField | INumberField)
-      .setValue(recordId, targetVal)
-      .then(() => {
-        sucessCounter.value++;
-      })
-      .catch(() => {
-        failureCounter.value++;
-      });
+    return;
   }
 
   return res;
 };
 
+const fomrValidate = () => {
+  if (!(originField.value && targetField.value)) {
+    return t("message.emptyField");
+  }
+  if (!activeTransformPattern.value.value.length) {
+    return t("message.emptyMode");
+  }
+  if (!regexText.value.length) {
+    return t("message.emptyRegex")
+  }
+  if (!isRegexValid(regexText.value)) {
+    return t("message.wrongRegex");
+  }
+  return null
+}
+
 /**
  * 提交转换
  */
 const handleConfirm = async () => {
-  if (!(originField.value && targetField.value)) {
+  const msg = fomrValidate();
+  if (msg) {
+    errorMsg.value = msg;
     return;
-  }
-  if (!activeUnit.value.value) {
-    activeUnit.value.value = "millis"
   }
   handleReset();
   if (activeTable.value) {
     const recordIdList = await activeTable.value.getRecordIdList();
     const originSelectField = await activeTable.value.getField<SupportField>(
-      originField.value.id
+      originField.value!.id
     );
-    const targetSelectField = await activeTable.value.getField<SupportField>(
-      targetField.value.id
+    const targetSelectField = await activeTable.value.getField<ITextField>(
+      targetField.value!.id
     );
     try {
       const promises: Promise<void>[] = [];
@@ -180,19 +185,15 @@ const handleConfirm = async () => {
         }
         recordCount.value++;
         if (!stopFlag.value) {
-          let targetVal: number;
-          // 单位转换
-          if (activeTransformPattern.value.value == "timestampToDate") {
-            targetVal = activeUnit.value.value == `millis` ? val : val * 1000;
-          } else {
-            targetVal = activeUnit.value.value == `millis` ? val : val / 1000;
-          }
-          const proimse = setValueByRecordId(
+          let targetVal = regexTranform(val, regexText.value);
+          if (targetVal != undefined) {
+            const proimse = setValueByRecordId(
             targetSelectField,
             recordId,
             targetVal
           );
           promises.push(proimse);
+          }
         }
       }
       await Promise.all(promises);
@@ -206,6 +207,30 @@ const handleConfirm = async () => {
 };
 
 /**
+ * 
+ * @param originFieldText 源字段文本
+ * @param regexExpression 正则表达式
+ */
+const regexTranform = (originFieldText: string, regexExpression: string, replaceText?: string ) => {
+  const regex = new RegExp(regexExpression, "g");
+  if (activeTransformPattern.value.value == "test") {
+    console.log(regex)
+    return regex.test(originFieldText) ? t("res.true") : t("res.false");
+  }
+  if (activeTransformPattern.value.value == "match") {
+    const matches = originFieldText.match(regex);
+    console.log(matches)
+    return matches ? matches.join(" ") : "";
+  }
+  if (activeTransformPattern.value.value == "replace") {
+    return originFieldText.replace(regex, replaceText || "")
+  }
+  if (activeTransformPattern.value.value == "split") {
+    return originFieldText.split(regex).join(" ");
+  }
+}
+
+/**
  * 停止转换
  */
 const handleStop = () => {
@@ -215,6 +240,22 @@ const handleStop = () => {
   isLoading.value = false;
   stopFlag.value = true;
 };
+
+/**
+ * 验证用户输入的字符串是否是合法的正则表达式
+ * @param pattern 用户输入的字符串
+ */
+ const isRegexValid = (pattern: string) => {
+
+    try {
+      new RegExp(pattern);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  
+};
+
 
 /**
  * 获取当前选中的表信息
@@ -250,6 +291,7 @@ const handleSelectionChange = (e: IEventCbCtx<Selection>) => {
   }
 };
 
+
 /**
  * 组件挂载时触发
  */
@@ -284,137 +326,104 @@ type SupportField = ITextField | IDateTimeField | INumberField;
           {{ activeTableName }}
         </el-tag>
       </el-row>
-
-      <el-form-item :label="t(`form.chooseSelectMode`)">
-        <el-select
-          v-model="activeTransformPattern"
-          value-key="value"
-          class="m-2"
-          :placeholder="t(`form.chooseSelectMode`)"
-          :change="handleUnitChange()"
-          style="width: 90%"
-        >
-          <el-option
-            v-for="item in transformPatternList"
-            :key="item.value"
-            :label="item.label"
-            :value="item"
-          />
-        </el-select>
-      </el-form-item>
-      <div v-if="activeTransformPattern.value == `timestampToDate`">
-        <el-form-item :label="t(`form.chooseOriginField.timestamp`)">
-          <el-row
-            style="width: 90%; display: flex; justify-content: space-between"
-          >
-            <el-select
-              v-model="originField"
-              value-key="id"
-              class="m-2"
-              :placeholder="t(`form.chooseTimeStampField`)"
-              style="width: 60%; border-radius: 10px"
-            >
-              <el-option
-                v-for="item in fieldList.filter(
-                  (item) => item.type === 1 || item.type === 2
-                )"
-                :key="item.id"
-                :label="item.name"
-                :value="item"
-              />
-            </el-select>
-            <el-select
-              v-model="activeUnit"
-              class="m-2"
-              :placeholder="t(`form.unit`)"
-              style="width: 35%"
-            >
-              <el-option
-                v-for="item in unitList"
-                :key="item.value"
-                :label="item.label"
-                :value="item"
-              />
-            </el-select>
-          </el-row>
-        </el-form-item>
-        <el-form-item :label="t(`form.chooseTargetField.date`)">
-          <el-select
-            v-model="targetField"
-            value-key="id"
-            class="m-2"
-            :placeholder="t(`form.chooseTargetField.plain`)"
-            style="width: 90%"
-          >
-            <el-option
-              v-for="item in fieldList.filter((item) => item.type === 5)"
-              :key="item.id"
-              :label="item.name"
-              :value="item"
-            />
-          </el-select>
-        </el-form-item>
-      </div>
-      <div v-else-if="activeTransformPattern.value == `dateToTimestamp`">
-        <el-form-item :label="t(`form.chooseOriginField.date`)">
+      <div>
+        <el-form-item>
+          <template #label>
+            <span style="display: flex; align-items: center">
+              {{ t(`form.chooseOriginField`) }}
+              <el-tooltip
+                class="box-item"
+                effect="dark"
+                :content="t(`info.originField`)"
+                placement="right"
+              >
+              <el-icon><WarningFilled /></el-icon>
+              </el-tooltip>
+            </span>
+          </template>
           <el-select
             v-model="originField"
             value-key="id"
             class="m-2"
-            :placeholder="t(`form.chooseTargetField.plain`)"
-            style="width: 90%"
+            :placeholder="t(`form.chooseOriginField`)"
+            style="width: 90%; border-radius: 10px"
           >
             <el-option
-              v-for="item in fieldList.filter((item) => item.type === 5)"
+              v-for="item in fieldList.filter(
+                (item) => item.type === 1 || item.type === 2
+              )"
               :key="item.id"
               :label="item.name"
               :value="item"
             />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t(`form.chooseTargetField.timestamp`)">
-          <el-row
-            style="width: 90%; display: flex; justify-content: space-between"
+        <el-form-item>
+          <template #label>
+            <span style="display: flex; align-items: center;">
+              {{ t(`form.chooseTargetField`) }}
+              <el-tooltip
+                class="box-item"
+                effect="dark"
+                :content="t(`info.targetField`)"
+                placement="right"
+              >
+              <el-icon><WarningFilled /></el-icon>
+              </el-tooltip>
+            </span>
+          </template>
+          <el-select
+            v-model="targetField"
+            value-key="id"
+            class="m-2"
+            :placeholder="t(`form.chooseTargetField`)"
+            style="width: 90%"
           >
-            <el-select
-              v-model="targetField"
-              value-key="id"
-              class="m-2"
-              :placeholder="t(`form.chooseTimeStampField`)"
-              style="width: 60%; border-radius: 10px"
-            >
-              <el-option
-                v-for="item in fieldList.filter(
-                  (item) => item.type === 1 || item.type === 2
-                )"
-                :key="item.id"
-                :label="item.name"
-                :value="item"
-              />
-            </el-select>
-            <el-select
-              v-model="activeUnit"
-              class="m-2"
-              :placeholder="t(`form.unit`)"
-              style="width: 35%"
-            >
-              <el-option
-                v-for="item in unitList"
-                :key="item.value"
-                :label="item.label"
-                :value="item"
-              />
-            </el-select>
-          </el-row>
+            <el-option
+              v-for="item in fieldList.filter((item) => item.type === 1)"
+              :key="item.id"
+              :label="item.name"
+              :value="item"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="t(`form.chooseSelectMode`)">
+          <el-select
+            v-model="activeTransformPattern"
+            value-key="value"
+            class="m-2"
+            :placeholder="t(`form.chooseSelectMode`)"
+            :change="handleUnitChange()"
+            style="width: 90%"
+          >
+            <el-option
+              v-for="item in transformPatternList"
+              :key="item.value"
+              :label="item.label"
+              :value="item"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="t(`form.inputRegexText`)">
+          <el-input
+            v-model="regexText"
+            :placeholder="t(`form.inputRegexText`)"
+            clearable
+            style="width: 90%"
+          />
         </el-form-item>
       </div>
     </el-form>
+    
     <el-col :span="24"> </el-col>
     <div>
       <el-button type="primary" :disabled="isLoading" @click="handleConfirm">
         {{ isLoading ? t("status.transforming") : t("status.confirm") }}
       </el-button>
       <el-button @click="handleStop"> {{ t("status.stop") }} </el-button>
+    </div>
+    <div v-if="errorMsg" style="padding-top: 20px; font-size: medium; width: 90%;">
+      <el-alert :title="errorMsg" type="error" show-icon />
     </div>
     <div v-if="isTransformed" style="padding-top: 20px; font-size: medium">
       <div style="padding-bottom: 10px">
@@ -442,6 +451,7 @@ type SupportField = ITextField | IDateTimeField | INumberField;
         </div>
       </div>
     </div>
+
   </div>
 </template>
 

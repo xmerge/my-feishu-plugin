@@ -1,27 +1,30 @@
 {
-  "transformPatternList": {
-    "timestampToDate": "时间戳转日期",
-    "dateToTimestamp": "日期转时间戳"
-  },
-  "unitList": {
-    "millis": "毫秒时间戳",
-    "seconds": "秒时间戳"
-  },
   "form": {
     "currentTable": "当前数据表",
     "chooseSelectMode": "选择转换模式",
-    "unit": "单位",
-    "chooseOriginField": {
-      "timestamp": "选择源字段（时间戳字段）",
-      "date": "选择源字段（日期字段）",
-      "plain": "选择源字段"
-    },
-    "chooseTargetField": {
-      "timestamp": "选择目标字段（时间戳字段）",
-      "date": "选择目标字段（日期字段）",
-      "plain": "选择目标字段"
-    },
-    "chooseTimeStampField": "选择时间戳字段"
+    "chooseOriginField": "选择源字段",
+    "chooseTargetField": "选择目标字段",
+    "inputRegexText": "输入正则表达式"
+  },
+  "mode": {
+    "test": "匹配",
+    "match": "提取",
+    "replace": "替换",
+    "split": "分割"
+  },
+  "info": {
+    "originField": "源字段应为数字或文本类型",
+    "targetField": "目标字段应为文本类型"
+  },
+  "message": {
+    "emptyField": "请选择字段",
+    "emptyMode": "请选择转换模式",
+    "emptyRegex": "请输入正则表达式",
+    "wrongRegex": "请输入正确的正则表达式"
+  },
+  "res" : {
+    "true": "符合",
+    "false": "不符合"
   },
   "status": {
     "transforming": "转换中",
