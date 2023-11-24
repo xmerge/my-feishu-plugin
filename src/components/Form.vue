@@ -12,7 +12,7 @@ import {
 import { bitable } from "@lark-base-open/js-sdk";
 import { ref, onMounted, shallowRef, computed, reactive } from "vue";
 import { i18n } from "../locales/i18n";
-import { ElMessage  } from 'element-plus'
+import { ElMessage } from "element-plus";
 import { WarningFilled } from "@element-plus/icons-vue";
 const { t } = i18n.global;
 
@@ -27,13 +27,16 @@ const isLoading = ref(false);
 
 /** 页面数据 */
 const regexText = ref("");
+const modifierText = ref("");
 const activeTable = shallowRef<ITable>();
 const fieldList = shallowRef<IFieldMeta[]>([]);
 const activeTableName = ref("");
 const activeTableId = ref("");
+const errorMsg = ref("");
+const replaceText = ref("")
 const originField = shallowRef<IFieldMeta>();
 const targetField = shallowRef<IFieldMeta>();
-const errorMsg = ref("");
+
 const activeTransformPattern = ref({
   label: "",
   value: "",
@@ -42,6 +45,7 @@ const activeUnit = ref({
   label: "",
   value: "",
 });
+const activeModifier = ref([]);
 const transformPatternList = computed(() => {
   return [
     {
@@ -62,7 +66,26 @@ const transformPatternList = computed(() => {
     },
   ];
 });
-
+const modifierList = computed(() => {
+  return [
+    {
+      label: t("modifier.global"),
+      value: "g",
+    },
+    {
+      label: t("modifier.ignoreCase"),
+      value: "i",
+    },
+    {
+      label: t("modifier.multiLine"),
+      value: "m",
+    },
+    {
+      label: t("modifier.newline"),
+      value: "s",
+    },
+  ];
+});
 
 /**
  * 处理单位变化的函数
@@ -70,6 +93,10 @@ const transformPatternList = computed(() => {
 const handleUnitChange = (): void => {
   // originField.value = undefined; // 重置原字段的值为undefined
   // targetField.value = undefined; // 重置目标字段的值为undefined
+};
+
+const handleModifierChange = (): void => {
+  modifierText.value = activeModifier.value.join("");
 };
 
 /**
@@ -101,14 +128,17 @@ const extractValueByRecordId = async (
   }
   let res: string | null = null;
   // 本身是 IDateTimeField || INumberField 类型
-  if (
-    originField.value?.type === FieldType.Number
-  ) {
+  if (originField.value?.type === FieldType.Number) {
     res = originFieldVar.toString();
   } else if (originField.value?.type === FieldType.Text) {
     // 本身是 ITextField 类型
     if (Array.isArray(originFieldVar) && originFieldVar[0].type == "text") {
-      res = originFieldVar[0].text;
+      if (modifierText.value.includes("m")) {
+        res = originFieldVar.map((object) => object.text).join("");
+      } else {
+        res = originFieldVar[0].text;
+      }
+      console.log("res ", res);
     }
   }
   return res;
@@ -150,13 +180,13 @@ const fomrValidate = () => {
     return t("message.emptyMode");
   }
   if (!regexText.value.length) {
-    return t("message.emptyRegex")
+    return t("message.emptyRegex");
   }
   if (!isRegexValid(regexText.value)) {
     return t("message.wrongRegex");
   }
-  return null
-}
+  return null;
+};
 
 /**
  * 提交转换
@@ -185,14 +215,15 @@ const handleConfirm = async () => {
         }
         recordCount.value++;
         if (!stopFlag.value) {
-          let targetVal = regexTranform(val, regexText.value);
+          const rplcTxt = replaceText.value
+          let targetVal = regexTranform(val, regexText.value, rplcTxt);
           if (targetVal != undefined) {
             const proimse = setValueByRecordId(
-            targetSelectField,
-            recordId,
-            targetVal
-          );
-          promises.push(proimse);
+              targetSelectField,
+              recordId,
+              targetVal
+            );
+            promises.push(proimse);
           }
         }
       }
@@ -206,29 +237,54 @@ const handleConfirm = async () => {
   }
 };
 
+const handleClickSample = (mode: string) => {
+  if (mode ==  "number") {
+    regexText.value = "[0-9]+"
+  } else if (mode == "alpha") {
+    regexText.value = "[a-z]+"
+  } else if (mode == "chinese") {
+    regexText.value = `[\u4e00-\u9fff]`
+  } else if (mode == "extractPhoneNumber") {
+    regexText.value = "1[0-9]{10}"
+  } else if (mode == "phoneNumber") {
+    regexText.value = "^1[0-9]{10}$"
+  } else if (mode == "IdCard") {
+    regexText.value = "^(\d{6})(\d{4})(\d{2})(\d{2})(\d{3})([0-9]|X)$"
+  }
+}
+
 /**
- * 
+ *
  * @param originFieldText 源字段文本
  * @param regexExpression 正则表达式
  */
-const regexTranform = (originFieldText: string, regexExpression: string, replaceText?: string ) => {
-  const regex = new RegExp(regexExpression, "g");
+const regexTranform = (
+  originFieldText: string,
+  regexExpression: string,
+  replaceText: string
+) => {
+  let regex: RegExp;
+  if (modifierText.value.length) {
+    regex = new RegExp(regexExpression, modifierText.value);
+  } else {
+    regex = new RegExp(regexExpression);
+  }
   if (activeTransformPattern.value.value == "test") {
-    console.log(regex)
+    console.log(regex);
     return regex.test(originFieldText) ? t("res.true") : t("res.false");
   }
   if (activeTransformPattern.value.value == "match") {
     const matches = originFieldText.match(regex);
-    console.log(matches)
+    console.log(matches);
     return matches ? matches.join(" ") : "";
   }
   if (activeTransformPattern.value.value == "replace") {
-    return originFieldText.replace(regex, replaceText || "")
+    return originFieldText.replace(regex, replaceText);
   }
   if (activeTransformPattern.value.value == "split") {
     return originFieldText.split(regex).join(" ");
   }
-}
+};
 
 /**
  * 停止转换
@@ -245,17 +301,14 @@ const handleStop = () => {
  * 验证用户输入的字符串是否是合法的正则表达式
  * @param pattern 用户输入的字符串
  */
- const isRegexValid = (pattern: string) => {
-
-    try {
-      new RegExp(pattern);
-      return true;
-    } catch (error) {
-      return false;
-    }
-  
+const isRegexValid = (pattern: string) => {
+  try {
+    new RegExp(pattern);
+    return true;
+  } catch (error) {
+    return false;
+  }
 };
-
 
 /**
  * 获取当前选中的表信息
@@ -290,7 +343,6 @@ const handleSelectionChange = (e: IEventCbCtx<Selection>) => {
     handleFieldChange();
   }
 };
-
 
 /**
  * 组件挂载时触发
@@ -337,7 +389,7 @@ type SupportField = ITextField | IDateTimeField | INumberField;
                 :content="t(`info.originField`)"
                 placement="right"
               >
-              <el-icon><WarningFilled /></el-icon>
+                <el-icon><WarningFilled /></el-icon>
               </el-tooltip>
             </span>
           </template>
@@ -346,7 +398,7 @@ type SupportField = ITextField | IDateTimeField | INumberField;
             value-key="id"
             class="m-2"
             :placeholder="t(`form.chooseOriginField`)"
-            style="width: 90%; border-radius: 10px"
+            style="width: 100%; border-radius: 10px"
           >
             <el-option
               v-for="item in fieldList.filter(
@@ -360,7 +412,7 @@ type SupportField = ITextField | IDateTimeField | INumberField;
         </el-form-item>
         <el-form-item>
           <template #label>
-            <span style="display: flex; align-items: center;">
+            <span style="display: flex; align-items: center">
               {{ t(`form.chooseTargetField`) }}
               <el-tooltip
                 class="box-item"
@@ -368,7 +420,7 @@ type SupportField = ITextField | IDateTimeField | INumberField;
                 :content="t(`info.targetField`)"
                 placement="right"
               >
-              <el-icon><WarningFilled /></el-icon>
+                <el-icon><WarningFilled /></el-icon>
               </el-tooltip>
             </span>
           </template>
@@ -377,7 +429,7 @@ type SupportField = ITextField | IDateTimeField | INumberField;
             value-key="id"
             class="m-2"
             :placeholder="t(`form.chooseTargetField`)"
-            style="width: 90%"
+            style="width: 100%"
           >
             <el-option
               v-for="item in fieldList.filter((item) => item.type === 1)"
@@ -387,34 +439,84 @@ type SupportField = ITextField | IDateTimeField | INumberField;
             />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t(`form.chooseSelectMode`)">
-          <el-select
-            v-model="activeTransformPattern"
-            value-key="value"
-            class="m-2"
-            :placeholder="t(`form.chooseSelectMode`)"
-            :change="handleUnitChange()"
-            style="width: 90%"
-          >
-            <el-option
-              v-for="item in transformPatternList"
-              :key="item.value"
-              :label="item.label"
-              :value="item"
-            />
-          </el-select>
-        </el-form-item>
+        <el-row style="width: 100%; justify-content: space-between">
+          <el-col :span="11">
+            <el-form-item :label="t(`form.chooseSelectMode`)">
+              <el-select
+                v-model="activeTransformPattern"
+                value-key="value"
+                class="m-2"
+                :placeholder="t(`form.chooseSelectMode`)"
+                :change="handleUnitChange()"
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="item in transformPatternList"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item :label="t(`form.modifier`)">
+              <el-select
+                v-model="activeModifier"
+                multiple
+                collapse-tags
+                value-key="value"
+                class="m-2"
+                :placeholder="t(`form.modifier`)"
+                :change="handleModifierChange()"
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="item in modifierList"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
         <el-form-item :label="t(`form.inputRegexText`)">
           <el-input
             v-model="regexText"
             :placeholder="t(`form.inputRegexText`)"
             clearable
-            style="width: 90%"
-          />
+            style="width: 100%"
+          >
+            <template #prepend>
+              <span> / </span>
+            </template>
+            <template #append>
+              <span> / {{ modifierText }} </span>
+            </template>
+          </el-input>
+        </el-form-item>
+        <el-form-item v-if="activeTransformPattern.value == `replace`" :label="t(`form.inputReplaceText`)">
+          <el-input
+            v-model="replaceText"
+            :placeholder="t(`form.inputReplaceText`)"
+            clearable
+            style="width: 100%"
+          >
+          
+          </el-input>
         </el-form-item>
       </div>
     </el-form>
-    
+    <el-row class="tag-row">
+      <el-tag class="ml-2 clickable" type="" @click="handleClickSample(`number`)">{{ t("sample.number") }}</el-tag>
+      <el-tag class="ml-2 clickable" type="info" @click="handleClickSample(`alpha`)">{{ t("sample.aplpha") }}</el-tag>
+      <!-- 界面会自动转义，待修复 -->
+      <!-- <el-tag class="ml-2 clickable" type="warning" @click="handleClickSample(`chinese`)">{{ t("sample.chinese") }}</el-tag> -->
+      <el-tag class="ml-2 clickable" type="success" @click="handleClickSample(`phoneNumber`)">{{ t("sample.phoneNumber") }}</el-tag>
+      <el-tag class="ml-2 clickable" type="success" @click="handleClickSample(`extractPhoneNumber`)">{{ t("sample.extractPhoneNumber") }}</el-tag>
+      <el-tag class="ml-2 clickable" type="danger" @click="handleClickSample(`IdCard`)">{{ t("sample.IdCard") }}</el-tag>
+    </el-row>
     <el-col :span="24"> </el-col>
     <div>
       <el-button type="primary" :disabled="isLoading" @click="handleConfirm">
@@ -422,8 +524,11 @@ type SupportField = ITextField | IDateTimeField | INumberField;
       </el-button>
       <el-button @click="handleStop"> {{ t("status.stop") }} </el-button>
     </div>
-    <div v-if="errorMsg" style="padding-top: 20px; font-size: medium; width: 90%;">
-      <el-alert :title="errorMsg" type="error" show-icon />
+    <div
+      v-if="errorMsg"
+      style="padding-top: 20px; font-size: medium; width: 100%"
+    >
+      <el-alert :title="errorMsg" type="error" show-icon :closable="false" />
     </div>
     <div v-if="isTransformed" style="padding-top: 20px; font-size: medium">
       <div style="padding-bottom: 10px">
@@ -451,7 +556,6 @@ type SupportField = ITextField | IDateTimeField | INumberField;
         </div>
       </div>
     </div>
-
   </div>
 </template>
 
@@ -476,6 +580,18 @@ type SupportField = ITextField | IDateTimeField | INumberField;
   padding-right: 0px;
   /* margin-top: 10px; */
 }
+:deep(.el-input-group__prepend) {
+  padding-top: 0px;
+  padding-right: 5px;
+  padding-bottom: 0px;
+  padding-left: 5px;
+}
+:deep(.el-input-group__append) {
+  padding-top: 0px;
+  padding-right: 5px;
+  padding-bottom: 0px;
+  padding-left: 5px;
+}
 .card-header {
   display: flex;
   margin-left: -10px;
@@ -493,5 +609,15 @@ type SupportField = ITextField | IDateTimeField | INumberField;
 }
 .expand-icon :hover {
   cursor: pointer;
+}
+.clickable :hover {
+  cursor: pointer;
+}
+.tag-row {
+  width: 100%; 
+  padding-bottom: 15px; 
+  justify-content: space-evenly;  
+  display: flex;flex-wrap: wrap; 
+  row-gap: 5px;
 }
 </style>

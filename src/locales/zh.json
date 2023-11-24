@@ -4,7 +4,9 @@
     "chooseSelectMode": "选择转换模式",
     "chooseOriginField": "选择源字段",
     "chooseTargetField": "选择目标字段",
-    "inputRegexText": "输入正则表达式"
+    "inputRegexText": "输入正则表达式",
+    "modifier": "修饰符（可选）",
+    "inputReplaceText": "输入替换目标文本"
   },
   "mode": {
     "test": "匹配",
@@ -25,6 +27,20 @@
   "res" : {
     "true": "符合",
     "false": "不符合"
+  },
+  "modifier": {
+    "global": "全局搜索 -g",
+    "ignoreCase": "忽略大小写 -i",
+    "multiLine": "多行模式 -m",
+    "newline": "包含换行符 -s"
+  },
+  "sample": {
+    "number": "数字",
+    "aplpha": "字母",
+    "chinese": "中文",
+    "phoneNumber": "电话号码",
+    "extractPhoneNumber": "提取电话号码",
+    "IdCard": "身份证"
   },
   "status": {
     "transforming": "转换中",
